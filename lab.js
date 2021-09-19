@@ -31,6 +31,8 @@ selections.set = (input, output) => {
     }
     return selections;
 };
+/** @param concern {{input: string}} */
+const get = (concern) => selections.get(concern.input);
 
 const concerns = {
     withoutBox: html`<details><summary>⚠ complexity moved to ecosystem</summary>
@@ -44,70 +46,85 @@ const concerns = {
         Existing security sensitive code checks if a value has no-power by checking if it's typeof is not 'object' or 'function',
         and will assume values with other results are safe to pass-around without further inspection.
         These projects may not be updated before they start to interact with Records and Tuples.</details>`,
-    validWeakValue: html`<details><summary>⚠ Consistency change</summary>
+    validWeakValue: html`<details><summary>⚠ consistency change</summary>
         Current code can rely on the consistency that values that have typeof 'object' and are not null can be stored weakly.
         If R&T introduces values that have typeof 'object' but throw when placed in a WeakSet this consistency is no longer reliable.
         And code will need to be updated </details>`,
-    weakSetLeak: html`<details><summary>⚠ Memory leak</summary>
+    weakSetLeak: html`<details><summary>⚠ memory leak</summary>
         If values are allowed in a WeakSet that are impossible to be garbage-collected this could create a silent memory leak</details>`,
-    slotSensitiveTypeof: html`<details><summary>⚠ Slot sensitive typeof</summary>
+    slotSensitiveTypeof: html`<details><summary>⚠ slot sensitive typeof</summary>
         If typeof a record or tuple changes depending on if there is a box transitively within its tree this makes typeof confusing.
         Code will have to rely on static methods like Record.isRecord instead.</details>`,
-    objectWrappers: html`<details><summary>⚠ Object wrappers</summary>
+    objectWrappers: html`<details><summary>⚠ object wrappers</summary>
         Having Object wrappers for Record and Tuple  will adds a risk to avoid and confusion when using JS.</details>`,
-    objectWrapperInConsistency: html`<details><summary>⚠ Object wrapper consistency</summary>
+    objectWrapperInConsistency: html`<details><summary>⚠ object wrapper consistency</summary>
         Usually values where their typeof is not 'object' or 'function' have Object wrapper versions of them.</details>`,
-    noBoxesInWeakSets: html`<details><summary>⚠ Performance</summary>
+    noBoxesInWeakSets: html`<details><summary>⚠ performance</summary>
         Libraries may want to create values based on Records that contain boxes. For example, mapping over a record
         and mapping each Box to something else. If this work is expensive, it may be beneficial to memoize the work
-        using a WeakMap. But this wouldn't be possible if Records with Boxes can't be WeakMaps keys.</details>`
+        using a WeakMap. But this wouldn't be possible if Records with Boxes can't be WeakMaps keys.</details>`,
+    unequalTupleNan: html`<details><summary>⚠ consistency change</summary>
+        Currently the only value not equal to itself is NaN, and this can be used as a reliable check for NaN.
+        If any record or tuple containing a NaN within its tree is also not equal to itself, then there would
+        be an infinite number of values not equal to themselves.</details>`,
+    noNegativeZero: html`<details><summary>⚠ no negative zero</summary>
+        Negative zero can be stored in a standard Array. If negative zero was transformed into positive zero
+        when stored in a tuple, then mapping arrays of numbers to and from tuples would not be isomorphic.</details>`,
+    impossibleEqualityOfZeros: html`<details><summary>⚠ impossible equality</summary>
+        If negative zero can not be stored in a Tuple (converted to +0). Then #[-0] cannot compare unequal to #[+0].</details>`,
+    observableDifferentButIsEqual: html`<details><summary>⚠ Object.is semantics</summary>
+        Putting aside that two NaNs can be observably different, by storing them in a TypedArray and reading the bits.
+        If Object.is returns true for two values this means the two values are not observably different, this is useful for
+        memoization techniques. For a pure function, if the inputs have not changed in an observable way then neither should
+        the output. React.js for example uses Object.is for its change-detection.
+        If two Tuples compare equal, but have observably different values (one has positive zero and the other has negative zero),
+        then this changes the semantics of Object.is, and the use cases it can be applied to.
+        </details>`,
+    nanNotIsNan: html`<details><summary>⚠ Object.is NaN semantics</summary>
+        if both 'Object.is(NaN, NaN)' and '#[NaN] === #[NaN]'' are true, there does not appear to be a reason for
+        Object.is(#[NaN], #[NaN]) to not be true.</details>`,
+    canNotAlwaysIntern: html`<details><summary>⚠ can not always intern</summary>
+        Object interning is a technique used to reduce memory and speed up certain operations after the initial interning cost.
+        If #[+0] equals #[-0] and storing negative zero in a tuple is preserved then records and tuple equality can not solely rely
+        on interning.
+        </details>`,
+    zerosNotTripleEqual: html`<details><summary>⚠ Triple equality semantics</summary>
+        As -0 === +0 on their own, it may surprise people that they are no longer treated as triple equal when compared
+        via a record or tuple. This could lead to bugs.</details>`,
 }
 
-const typeofBox =  { input: `typeof Box`, output: ['box', 'object', 'undefined'], concern: () => {
+const typeofBox =  { input: `typeof Box`, output: ['box', 'object', 'undefined'], concern: (self) => {
     if (noBox()) {
         return concerns.withoutBox;
     }
-    if (selections.get(typeofBox.input) !== 'object') {
+    if (self !== 'object') {
         return concerns.typeofPowerfulObjectIsNotObject;
     }
 }};
-const noBox = () => selections.get(typeofBox.input) === 'undefined' ? `typeof Box === 'undefined'` : false;
 
-const typeofTuple = { input: `typeof #[]`, output: ['tuple', 'object'], concern: () => {
-    if ((!noBox()) && selections.get(typeofTuple.input) !== selections.get(typeOfTupleWithBox.input)) {
+const noBox = () => get(typeofBox) === 'undefined' ? `typeof Box === 'undefined'` : false;
+
+const typeofTuple = { input: `typeof #[]`, output: ['tuple', 'object'], concern: (self) => {
+    if ((!noBox()) && self !== get(typeOfTupleWithBox)) {
         return concerns.slotSensitiveTypeof;
     }
 }};
 
-const typeOfTupleWithBox = { input: `typeof #[Box({})]`, output: ['tuple', 'object'], disabled: noBox, concern: () => {
-    if (selections.get(typeOfTupleWithBox.input) !== 'object') {
+const typeOfTupleWithBox = { input: `typeof #[Box({})]`, output: ['tuple', 'object'], disabled: noBox, concern: (self) => {
+    if (self !== 'object') {
         return concerns.typeofPowerfulObjectIsNotObject;
     }
 }};
 
-const weakSetThrowsOnNoBox = { input: `new WeakSet().add(#[]) // throws?`, output: [true, false], concern: () => {
-    if (selections.get(weakSetThrowsOnNoBox.input)) {
-        if (selections.get(typeofBox.input) === 'object') {
-            return concerns.validWeakValue;
-        }
-    } else {
-        return concerns.weakSetLeak;
+const storeNegativeZero = { input: `Object.is(#[-0].at(0), -0)`, output: [true, false], concern: (self) => {
+    if (!self) {
+        return concerns.noNegativeZero;
     }
 }};
 
-const weakSetThrowsOnBox = { input: `new WeakSet().add(#[Box({})]) // throws?`, output: [true, false], disabled: noBox, concern: () => {
-    if (selections.get(weakSetThrowsOnBox.input)) {
-        return concerns.noBoxesInWeakSets;
-    }
-}};
-
-const noObjectWrapper = { input: `Object(#[]) === #[]`, output: [true, false], concern: () => {
-    if (selections.get(noObjectWrapper.input)) {
-        if (selections.get(typeofTuple.input) !== 'object') {
-            return concerns.objectWrapperInConsistency;
-        }
-    } else {
-        return concerns.objectWrappers;
+const tupleNaNAreTripleEqual = { input: `#[NaN] === #[NaN]`, output: [true, false], concern: (self) => {
+    if (!self) {
+        return concerns.unequalTupleNan;
     }
 }};
 
@@ -119,18 +136,65 @@ const noObjectWrapper = { input: `Object(#[]) === #[]`, output: [true, false], c
  */
 const design = [
     ...givens,
-    { input: `Object.is(#[-0].at(0), -0)`, output: [true, false] },
-    { input: `#[+0] === #[-0]`, output: [true, false] },
-    { input: `#[NaN] === #[NaN]`, output: [true, false] },
-    { input: `Object.is(#[+0], #[-0])`, output: [false, true] },
-    { input: `Object.is(#[NaN], #[NaN])`, output: [true, false] },
+    storeNegativeZero,
+    { input: `#[+0] === #[-0]`, output: [true, false], concern: (self) => {
+        if (self) {
+            if (get(storeNegativeZero)) {
+                return concerns.canNotAlwaysIntern;
+            }
+        }
+        else {
+            if (!get(storeNegativeZero)) {
+                return concerns.impossibleEqualityOfZeros;
+            }
+            return concerns.zerosNotTripleEqual;
+        }
+    }},
+    tupleNaNAreTripleEqual,
+    { input: `Object.is(#[+0], #[-0])`, output: [false, true], concern: (self) => {
+        if (self) {
+            if (get(storeNegativeZero)) {
+                return concerns.observableDifferentButIsEqual;
+            }
+        }
+        else {
+            if (!get(storeNegativeZero)) {
+                return concerns.impossibleEqualityOfZeros;
+            }
+        }
+    }},
+    { input: `Object.is(#[NaN], #[NaN])`, output: [true, false], concern: (self) => {
+        if (!self && get(tupleNaNAreTripleEqual)) {
+            return concerns.nanNotIsNan;
+        }
+    }},
     typeofBox,
     typeofTuple,
     typeOfTupleWithBox,
     { input: `Box(42) // throws?`, output: [true, false], disabled: noBox },
-    noObjectWrapper,
-    weakSetThrowsOnNoBox,
-    weakSetThrowsOnBox,
+    { input: `Object(#[]) === #[]`, output: [true, false], concern: (self) => {
+        if (self) {
+            if (get(typeofTuple) !== 'object') {
+                return concerns.objectWrapperInConsistency;
+            }
+        } else {
+            return concerns.objectWrappers;
+        }
+    }},
+    { input: `new WeakSet().add(#[]) // throws?`, output: [true, false], concern: (self) => {
+        if (self) {
+            if (get(typeofBox) === 'object') {
+                return concerns.validWeakValue;
+            }
+        } else {
+            return concerns.weakSetLeak;
+        }
+    }},
+    { input: `new WeakSet().add(#[Box({})]) // throws?`, output: [true, false], disabled: noBox, concern: (self) => {
+        if (self) {
+            return concerns.noBoxesInWeakSets;
+        }
+    }},
     { input: `new Proxy(#[]) // throws?`, output: [true, false], disabled: noBox },
     { input: `new Proxy(#[Box({})]) // throws?`, output: [true, false], disabled: noBox },
 ];
@@ -153,7 +217,7 @@ function App() {
         <table class="center">
             ${design.map(c => {
                 const disabled = c.disabled?.() ?? false;
-                const concerns = c.concern?.() ?? false;
+                const concerns = c.concern?.(get(c)) ?? false;
                 const attrs = disabled ? { class: 'disabled', title: disabled } : {};
                 return html`
                     <tr>
