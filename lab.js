@@ -91,6 +91,20 @@ const concerns = {
     zerosNotTripleEqual: html`<details><summary>⚠ Triple equality semantics</summary>
         As -0 === +0 on their own, it may surprise people that they are no longer treated as triple equal when compared
         via a record or tuple. This could lead to bugs.</details>`,
+    storingPrimitiveInBox: html`<details><summary>⚠ storing primitives in a Box</summary>
+        If primitives can be stored in a Box, then code checking if a Record/Tuple transitively contains an object can no
+        longer be performed with a containsBoxes predicate. Instead the code will need to also check the contents of the boxes.</details>`,
+    recordProxies: html`<details><summary>⚠ Record proxies</summary>
+        It appears that a Record-Proxy would not be able to be much different from 'new Proxy(Object.freeze({...record}), handler)'.
+        This is because if the Proxy still retained Record semantics, then equality checks would need to trigger the traps.
+        Causing arbitrary JS to run during previously safe operations like '==='.
+        This means that the returning proxy can not be transparent, and will instead be an object and not a record.
+        It could be better to throw instead so this API space remains open for new ideas on how to achieve this in the future.</details>`,
+    proxyThrowTypeofObject: html`<details><summary>⚠ proxy ergonomics</summary>
+        Usually if something has typeof 'object' then it would be safe to create a proxy of it.
+        But if records and tuples are typeof 'object' and throw when passed to the proxy constructor,
+        this causes users to update their code to manually convert Records/Tuples
+        into their frozen object counterparts before passing them to the proxy constructor.</details>`,
 }
 
 const typeofBox =  { input: `typeof Box`, output: ['box', 'object', 'undefined'], concern: (self) => {
@@ -171,13 +185,18 @@ const design = [
     typeofBox,
     typeofTuple,
     typeOfTupleWithBox,
-    { input: `Box(42) // throws?`, output: [true, false], disabled: noBox },
+    { input: `Box(42) // throws?`, output: [true, false], disabled: noBox, concern: (self) => {
+        if (!self) {
+            return concerns.storingPrimitiveInBox;
+        }
+    } },
     { input: `Object(#[]) === #[]`, output: [true, false], concern: (self) => {
         if (self) {
             if (get(typeofTuple) !== 'object') {
                 return concerns.objectWrapperInConsistency;
             }
-        } else {
+        }
+        else {
             return concerns.objectWrappers;
         }
     }},
@@ -186,7 +205,8 @@ const design = [
             if (get(typeofBox) === 'object') {
                 return concerns.validWeakValue;
             }
-        } else {
+        }
+        else {
             return concerns.weakSetLeak;
         }
     }},
@@ -195,8 +215,26 @@ const design = [
             return concerns.noBoxesInWeakSets;
         }
     }},
-    { input: `new Proxy(#[]) // throws?`, output: [true, false], disabled: noBox },
-    { input: `new Proxy(#[Box({})]) // throws?`, output: [true, false], disabled: noBox },
+    { input: `new Proxy(#[]) // throws?`, output: [true, false], concern: (self) => {
+        if (self) {
+            if (get(typeofTuple) === 'object') {
+                return concerns.proxyThrowTypeofObject;
+            }
+        }
+        else {
+            return concerns.recordProxies;
+        }
+    }},
+    { input: `new Proxy(#[Box({})]) // throws?`, output: [true, false], disabled: noBox, concern: (self) => {
+        if (self) {
+            if (get(typeOfTupleWithBox) === 'object') {
+                return concerns.proxyThrowTypeofObject;
+            }
+        }
+        else {
+            return concerns.recordProxies;
+        }
+    } },
 ];
 
 for (const {input, output} of design) {
