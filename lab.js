@@ -164,7 +164,7 @@ function App() {
                 `
             })}
         </table>
-        <a href="https://github.com/acutmore/record-tuple-laboratory/issues/new" target="_blank">raise issue</a>
+        🏗 Work in progress - <a href="https://github.com/acutmore/record-tuple-laboratory/issues/new" target="_blank">raise issue</a>
         <br />
         <i>Refresh page to shuffle selections.</i>
         <div class="scrollable" style=${{ marginTop: '50px', float: 'left' }}><${JSONOutput} /></div>
