@@ -36,12 +36,24 @@ const get = (concern) => selections.get(concern.input);
 
 const concerns = {
     withoutBox: html`<details><summary>⚠ complexity moved to ecosystem</summary>
-        Using <a href="https://github.com/tc39/proposal-symbols-as-weakmap-keys">symbols-as-weakmap-keys</a>, symbols in Record and Tuples could still refer to objects/functions in a WeakMap.
+        Using <a href="https://github.com/tc39/proposal-symbols-as-weakmap-keys">symbols-as-weakmap-keys</a>,
+        symbols in Record and Tuples could still refer to objects/functions in a WeakMap.
         Code will need to ensure the nessesary code has access to these WeakMap side tables.
         APIs conventions will need to be established to distinguish when symbols are being used in this way.
         Care will need to be taken with the WeakMaps, if a Map is used by accident there is a risk of memory leaks.
         Unless direct access to the WeakMap is hidden behind a wrapper, other code could remove/replace the referenced
-        object.</details>`,
+        object.
+        <p>
+            Box use-cases include:
+            <ul>
+                <li>Composite keys for Maps/Sets.</li>
+                <li>
+                    In React.js creating and passing groups of values, possibly functions,
+                    around without triggering re-renders due to changing object identity
+                </li>
+            </ul>
+        </p>
+        </details>`,
     typeofPowerfulObjectIsNotObject: html`<details><summary>⚠ security risk</summary>
         Existing security sensitive code checks if a value has no-power by checking if it's typeof is not 'object' or 'function',
         and will assume values with other results are safe to pass-around without further inspection.
