@@ -53,6 +53,14 @@ const concerns = {
     slotSensitiveTypeof: html`<details><summary>⚠ Slot sensitive typeof</summary>
         If typeof a record or tuple changes depending on if there is a box transitively within its tree this makes typeof confusing.
         Code will have to rely on static methods like Record.isRecord instead.</details>`,
+    objectWrappers: html`<details><summary>⚠ Object wrappers</summary>
+        Having Object wrappers for Record and Tuple  will adds a risk to avoid and confusion when using JS.</details>`,
+    objectWrapperInConsistency: html`<details><summary>⚠ Object wrapper consistency</summary>
+        Usually values where their typeof is not 'object' or 'function' have Object wrapper versions of them.</details>`,
+    noBoxesInWeakSets: html`<details><summary>⚠ Performance</summary>
+        Libraries may want to create values based on Records that contain boxes. For example, mapping over a record
+        and mapping each Box to something else. If this work is expensive, it may be beneficial to memoize the work
+        using a WeakMap. But this wouldn't be possible if Records with Boxes can't be WeakMaps keys.</details>`
 }
 
 const typeofBox =  { input: `typeof Box`, output: ['box', 'object', 'undefined'], concern: () => {
@@ -87,7 +95,21 @@ const weakSetThrowsOnNoBox = { input: `new WeakSet().add(#[]) // throws?`, outpu
     }
 }};
 
-const weakSetThrowsOnBox = { input: `new WeakSet().add(#[Box({})]) // throws?`, output: [true, false], disabled: noBox};
+const weakSetThrowsOnBox = { input: `new WeakSet().add(#[Box({})]) // throws?`, output: [true, false], disabled: noBox, concern: () => {
+    if (selections.get(weakSetThrowsOnBox.input)) {
+        return concerns.noBoxesInWeakSets;
+    }
+}};
+
+const noObjectWrapper = { input: `Object(#[]) === #[]`, output: [true, false], concern: () => {
+    if (selections.get(noObjectWrapper.input)) {
+        if (selections.get(typeofTuple.input) !== 'object') {
+            return concerns.objectWrapperInConsistency;
+        }
+    } else {
+        return concerns.objectWrappers;
+    }
+}};
 
 /**
  * input: a JS snipped
@@ -106,7 +128,7 @@ const design = [
     typeofTuple,
     typeOfTupleWithBox,
     { input: `Box(42) // throws?`, output: [true, false], disabled: noBox },
-    { input: `Object(#[]) === #[]`, output: [true, false] },
+    noObjectWrapper,
     weakSetThrowsOnNoBox,
     weakSetThrowsOnBox,
     { input: `new Proxy(#[]) // throws?`, output: [true, false], disabled: noBox },
@@ -142,7 +164,7 @@ function App() {
                 `
             })}
         </table>
-
+        <i>Refresh page to shuffle selections.</i>
         <div class="scrollable" style=${{ marginTop: '50px', float: 'left' }}><${JSONOutput} /></div>
         <div class="scrollable" style=${{ marginTop: '50px', float: 'left' }}><${JSONInput} /> </div>
     `;
