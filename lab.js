@@ -143,11 +143,14 @@ for (const {input, output} of design) {
 
 function App() {
     return html`
-        <h1>
+        <h1 class="text-center">
             Record and Tuple Laboratory 🔬
             <a href="https://github.com/acutmore/record-tuple-laboratory"><img src="./res/github.png" height="30" /></a>
         </h1>
-        <table>
+        <p class="text-center">
+            🏗 Work in progress - <a href="https://github.com/acutmore/record-tuple-laboratory/issues/new" target="_blank">raise issue</a>
+        </p>
+        <table class="center">
             ${design.map(c => {
                 const disabled = c.disabled?.() ?? false;
                 const concerns = c.concern?.() ?? false;
@@ -164,11 +167,13 @@ function App() {
                 `
             })}
         </table>
-        🏗 Work in progress - <a href="https://github.com/acutmore/record-tuple-laboratory/issues/new" target="_blank">raise issue</a>
-        <br />
-        <i>Refresh page to shuffle selections.</i>
-        <div class="scrollable" style=${{ marginTop: '50px', float: 'left' }}><${JSONOutput} /></div>
-        <div class="scrollable" style=${{ marginTop: '50px', float: 'left' }}><${JSONInput} /> </div>
+        <p class="text-center">
+            <i>Refresh page to shuffle selections.</i>
+        </p>
+        <div class="center" style=${{ width: '500px' }}>
+            <div class="scrollable" style=${{ marginTop: '10px', float: 'left' }}><${JSONOutput} /></div>
+            <div class="scrollable" style=${{ marginTop: '10px', float: 'left' }}><${JSONInput} /> </div>
+        </div>
     `;
 }
 
