@@ -1,7 +1,11 @@
 // @ts-check
 import { html, render } from 'https://unpkg.com/htm/preact/standalone.module.js'
 
-const paint = () => render(html`<${App} />`, document.body);
+let ready = false;
+const paint = () => {
+    if (!ready) return;
+    render(html`<${App} />`, document.body)
+};
 
 const givens = [
     { input: `typeof []`, output: 'object' },
@@ -22,11 +26,16 @@ const givens = [
  */
 const selections = new Map();
 selections.set = (input, output) => {
-    const match = design.find(v => v.input === input);
+    const match = tweakables.find(v => v.input === input);
     if (match) {
         if (Array.isArray(match.output) && match.output.includes(output)) {
-            Map.prototype.set.call(selections, input, output);
-            paint();
+            if (selections.get(input) !== output) {
+                Map.prototype.set.call(selections, input, output);
+                if (ready) {
+                    location.hash = '';
+                }
+                paint();
+            }
         }
     }
     return selections;
@@ -160,8 +169,7 @@ const tupleNaNAreTripleEqual = { input: `#[NaN] === #[NaN]`, output: [true, fals
  * disabled: a non-pure function that returns a string if this options is not currently available
  * concern: a non-pure function that returns a string if there is a concern with the design
  */
-const design = [
-    ...givens,
+const tweakables = [
     storeNegativeZero,
     { input: `#[+0] === #[-0]`, output: [true, false], concern: (self) => {
         if (self) {
@@ -249,9 +257,48 @@ const design = [
     } },
 ];
 
-for (const {input, output} of design) {
-    Array.isArray(output) && selections.set(input, output[Math.floor(Math.random() * output.length)]);
+const design = [ ...givens, ...tweakables ];
+
+function shuffle() {
+    let wasReady = ready;
+    location.hash = '';
+    ready = false;
+    try {
+        for (const {input, output} of tweakables) {
+            Array.isArray(output) && selections.set(input, output[Math.floor(Math.random() * output.length)]);
+        }
+    } finally {
+        ready = wasReady;
+    }
+    paint();
 }
+
+let urlLoadingIssues = [];
+
+function attemptLoadFromURL() {
+    urlLoadingIssues = [];
+    try {
+        const urlData = location.hash;
+        if (!urlData) {
+            shuffle();
+            return;
+        };
+        const tweakableKeys = new Set(tweakables.map(t => t.input));
+        for (const [key, value] of Object.entries(JSON.parse(decodeURI(urlData.slice(1))))) {
+            if (! tweakableKeys.has(key)) {
+                urlLoadingIssues.push(`Unknown item in url: '${key}'`);
+            }
+            selections.set(key, value);
+            tweakableKeys.delete(key);
+        }
+        for (const unusedKey of tweakableKeys) {
+            urlLoadingIssues.push(`'${unusedKey}' was not set by the URL`);
+        }
+    } catch (e) {
+        console.error(e);
+    }
+}
+attemptLoadFromURL();
 
 // ------------------------------------------------------------------------------------------------
 
@@ -264,6 +311,11 @@ function App() {
         <p class="text-center">
             🏗 Work in progress - <a href="https://github.com/acutmore/record-tuple-laboratory/issues/new" target="_blank">raise issue</a>
         </p>
+        ${urlLoadingIssues.length > 0 ? html`
+            <ul class="text-center">
+                ${urlLoadingIssues.map(issue => html`<li>${issue}</li>`)}
+            </ul>
+        ` : false}
         <table class="center">
             ${design.map(c => {
                 const disabled = c.disabled?.() ?? false;
@@ -282,7 +334,7 @@ function App() {
             })}
         </table>
         <p class="text-center">
-            <i>Refresh page to shuffle selections.</i>
+            <button onClick=${shuffle}>shuffle</button>
         </p>
         <div class="center" style=${{ width: '500px' }}>
             <div class="scrollable" style=${{ marginTop: '10px', float: 'left' }}><${JSONOutput} /></div>
@@ -304,7 +356,7 @@ function Selection({input, output, disabled }) {
 
 function JSONOutput() {
     return html`
-        Click text to copy to clipboard.
+        <button onClick=${saveURL}>save as URL</button> or click the JSON to copy that to clipboard
         <pre onClick=${e => copyText(e.target)}>${
             JSON.stringify(Object.fromEntries(selections), undefined, 2)
         }</pre>
@@ -324,9 +376,18 @@ function JSONInput() {
     `;
 }
 
+async function saveURL() {
+    const encoded = `${encodeURI(JSON.stringify(Object.fromEntries(selections)))}`;
+    location.hash = encoded;
+
+    await navigator.clipboard.writeText(location.toString());
+    alert('Text copied to clipboard');
+}
+
 async function copyText(element) {
     await navigator.clipboard.writeText(element.innerText);
     alert('Text copied to clipboard');
 }
 
+ready = true;
 paint();
