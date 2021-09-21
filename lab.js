@@ -76,6 +76,9 @@ const concerns = {
     slotSensitiveTypeof: html`<details><summary>⚠ slot sensitive typeof</summary>
         If typeof a record or tuple changes depending on if there is a box transitively within its tree this makes typeof confusing.
         Code will have to rely on static methods like Record.isRecord instead.</details>`,
+    confusingTypeof: html`<details><summary>⚠ problematic typeof</summary>
+        If a Tuple without a Box in it's tree has typeof 'object', there is no value to be gained from a Tuple with a Box having typeof 'tuple',
+        because if anything it is more like an object when it contains a Box.</details>`,
     objectWrappers: html`<details><summary>⚠ object wrappers</summary>
         Having Object wrappers for Record and Tuple  will adds a risk to avoid and confusion when using JS.</details>`,
     objectWrapperInConsistency: html`<details><summary>⚠ object wrapper consistency</summary>
@@ -146,6 +149,9 @@ const typeofTuple = { input: `typeof #[]`, output: ['tuple', 'object'], concern:
 }};
 
 const typeOfTupleWithBox = { input: `typeof #[Box({})]`, output: ['tuple', 'object'], disabled: noBox, concern: (self) => {
+    if (get(typeofTuple) === 'object' && self === 'tuple') {
+        return concerns.confusingTypeof;
+    }
     if (self !== 'object') {
         return concerns.typeofPowerfulObjectIsNotObject;
     }
