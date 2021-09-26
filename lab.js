@@ -115,21 +115,32 @@ const concerns = {
     zerosNotTripleEqual: html`<details><summary>⚠ Triple equality semantics</summary>
         As -0 === +0 on their own, it may surprise people that they are no longer treated as triple equal when compared
         via a record or tuple. This could lead to bugs.</details>`,
-    storingPrimitiveInBox: html`<details><summary>⚠ storing primitives in a Box</summary>
+    storingPrimitiveInBox: html`<details><summary>⚠ storing <i>primitives*</i> in a Box</summary>
+        <p>
+            primitives*: For want of a more appropriate term, in this section the term primitive will have the meaning: a value that can be directly stored in a Record or Tuple.
+            i.e. records, tuples, boxes, null, undefined, booleans, numbers, strings, symbols, and bigints.
+        </p>
         <p>
             The original rationale for introducing Box is to allow Records and Tuples to explicitly reference a value that would otherwise be disallowed
             to be 'stored' directly within Records and Tuples e.g. functions.
             Values like numbers can already be stored in a Record or Tuple.
-            While allowing numbers (and other primitives) to be stored in a Box may be ergonomic for the producer of the Box,
+            While allowing primitives* to be stored in a Box may be ergonomic for the producer of the Box,
             complexity has been moved to the consumers of Boxes. Consumers can no longer rely on the guarantee that a Box will always
-            reference a 'non-primitive'.
+            reference a 'non-primitive*'.
         </p>
         <p>
-            If primitives can be stored in a Box, then code checking if a Record/Tuple transitively contains a mutable object can no
-            longer be performed with a single call to a <pre>Box.containsBoxes</pre> predicate, instead a different API would be needed for this use-case.
-            e.g. <pre>Object.containsObject</pre> or <pre>Box.containsBoxWithIdentity</pre>. These APIs <i>may</i> be harder to explain than 'containsBoxes'.
-            Note: Without a built-in API these helpers could still be implemented in user-land, recursively walking the tree inspecting the values.
+            It appears that there might be situations where checking if a Record contains an Object or not will be important, because of the difference in semantics.
+            e.g. checking for cycles, passing values across a <a href="https://github.com/tc39/proposal-shadowrealm">ShadowRealm</a> boundary,
+            or <a href="https://github.com/tc39/proposal-record-tuple/issues/233#issuecomment-895044432">storing values in a WeakMap</a>.
+            If primitives* can be stored in a Box, then code checking if a Record/Tuple transitively contains an Object can no
+            longer be performed with a single call to a <pre>Box.containsBoxes</pre> predicate, instead different/additional helpers would be needed for this use-case.
+            e.g. <pre>Object.containsObject</pre> or <pre>Box.containsBoxWithIdentity</pre>. These helpers <i>may</i> be harder to explain than 'containsBoxes'.
+            Note: These helpers can be implemented in user-land, recursively walking the tree inspecting the values. They do not necessarily need to be built-in.
         </p>
+        <ul>
+            <li><a href="https://github.com/tc39/proposal-record-tuple/issues/238">R&T #238 Behavior of Box(Box(x))</a></li>
+            <li><a href="https://github.com/tc39/proposal-record-tuple/issues/231">R&T #231 Boxes: How to expose a way to detect boxes in R&T?</a></li>
+        </ul>
         </details>`,
     noPrimitivesInBox: html`<details><summary>⚠ Box construction ergonomics</summary>
         If the Box constructor throws for values that can be 'stored' directly in a Record and Tuple, such as strings, numbers, booleans.
