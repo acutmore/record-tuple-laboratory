@@ -115,9 +115,39 @@ const concerns = {
     zerosNotTripleEqual: html`<details><summary>⚠ Triple equality semantics</summary>
         As -0 === +0 on their own, it may surprise people that they are no longer treated as triple equal when compared
         via a record or tuple. This could lead to bugs.</details>`,
-    storingPrimitiveInBox: html`<details><summary>⚠ storing primitives in a Box</summary>
-        If primitives can be stored in a Box, then code checking if a Record/Tuple transitively contains an object can no
-        longer be performed with a containsBoxes predicate. Instead the code will need to also check the contents of the boxes.</details>`,
+    storingPrimitiveInBox: html`<details><summary>⚠ storing <i>primitives*</i> in a Box</summary>
+        <p>
+            primitives*: For want of a more appropriate term, in this section the term primitive will have the meaning: a value that can be directly stored in a Record or Tuple.
+            i.e. records, tuples, boxes, null, undefined, booleans, numbers, strings, symbols, and bigints.
+        </p>
+        <p>
+            The original rationale for introducing Box is to allow Records and Tuples to explicitly reference a value that would otherwise be disallowed
+            to be 'stored' directly within Records and Tuples e.g. functions.
+            Values like numbers can already be stored in a Record or Tuple.
+            While allowing primitives* to be stored in a Box may be ergonomic for the producer of the Box,
+            complexity has been moved to the consumers of Boxes. Consumers can no longer rely on the guarantee that a Box will always
+            reference a 'non-primitive*'.
+        </p>
+        <p>
+            It appears that there might be situations where checking if a Record contains an Object or not will be important, because of the difference in semantics.
+            e.g. checking for cycles, passing values across a <a href="https://github.com/tc39/proposal-shadowrealm">ShadowRealm</a> boundary,
+            or <a href="https://github.com/tc39/proposal-record-tuple/issues/233#issuecomment-895044432">storing values in a WeakMap</a>.
+            If primitives* can be stored in a Box, then code checking if a Record/Tuple transitively contains an Object can no
+            longer be performed with a single call to a <pre>Box.containsBoxes</pre> predicate, instead different/additional helpers would be needed for this use-case.
+            e.g. <pre>Object.containsObject</pre> or <pre>Box.containsBoxWithIdentity</pre>. These helpers <i>may</i> be harder to explain than 'containsBoxes'.
+            Note: These helpers can be implemented in user-land, recursively walking the tree inspecting the values. They do not necessarily need to be built-in.
+        </p>
+        <ul>
+            <li><a href="https://github.com/tc39/proposal-record-tuple/issues/238">R&T #238 Behavior of Box(Box(x))</a></li>
+            <li><a href="https://github.com/tc39/proposal-record-tuple/issues/231">R&T #231 Boxes: How to expose a way to detect boxes in R&T?</a></li>
+        </ul>
+        </details>`,
+    noPrimitivesInBox: html`<details><summary>⚠ Box construction ergonomics</summary>
+        If the Box constructor throws for values that can be 'stored' directly in a Record and Tuple, such as strings, numbers, booleans.
+        This adds complexity for code that is trying to use Boxes generically, they will now need to check if a value can
+        be put in a Box before attempting to construct the Box, or be sure to handle the possibility that an exception will be thrown.
+        From a different perspective there could be an advantage to an exception being thrown - it <i>may</i> help clarify the purpose of Boxes
+        and make unnecessary boxing impossible.</details>`,
     recordProxies: html`<details><summary>⚠ Record proxies</summary>
         It appears that a Record-Proxy would not be able to be much different from 'new Proxy(Object.freeze({...record}), handler)'.
         This is because if the Proxy still retained Record semantics, then equality checks would need to trigger the traps.
@@ -212,7 +242,10 @@ const tweakables = [
     typeofTuple,
     typeOfTupleWithBox,
     { input: `Box(42) // throws?`, output: [true, false], disabled: noBox, concern: (self) => {
-        if (!self) {
+        if (self) {
+            return concerns.noPrimitivesInBox;
+        }
+        else {
             return concerns.storingPrimitiveInBox;
         }
     } },
