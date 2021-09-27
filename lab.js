@@ -159,6 +159,16 @@ const concerns = {
         But if records and tuples are typeof 'object' and throw when passed to the proxy constructor,
         this causes users to update their code to manually convert Records/Tuples
         into their frozen object counterparts before passing them to the proxy constructor.</details>`,
+    differenceBetweenEqualityForTypeofObject: html`<details><summary>⚠ different equality of an object-like value</summary>
+        <p>
+            In current JavaScript if two values, 'a' and 'b', both have typeof 'object' then 'a === b' and 'Object.is(a, b)' will always return the same result.
+        </p>
+        <p>
+            The current laboratory setup would mean that this is no longer an invariant of the language. Because given two almost identical
+            tuples, except one has positive zero, and the other has negative zero. These would both have typeof 'object' and
+            be '===' equal to each other, but not equal when compared by Object.is.
+        </p>
+    </details>`,
 }
 
 const typeofBox =  { input: `typeof Box`, output: ['box', 'object', 'undefined'], concern: (self) => {
@@ -199,6 +209,20 @@ const tupleNaNAreTripleEqual = { input: `#[NaN] === #[NaN]`, output: [true, fals
     }
 }};
 
+const zerosAreTripleEqual = { input: `#[+0] === #[-0]`, output: [true, false], concern: (self) => {
+    if (self) {
+        if (get(storeNegativeZero)) {
+            return concerns.canNotAlwaysIntern;
+        }
+    }
+    else {
+        if (!get(storeNegativeZero)) {
+            return concerns.impossibleEqualityOfZeros;
+        }
+        return concerns.zerosNotTripleEqual;
+    }
+}};
+
 /**
  * input: a JS snipped
  * output: a string if this is 'given', or an Array of design options
@@ -207,19 +231,7 @@ const tupleNaNAreTripleEqual = { input: `#[NaN] === #[NaN]`, output: [true, fals
  */
 const tweakables = [
     storeNegativeZero,
-    { input: `#[+0] === #[-0]`, output: [true, false], concern: (self) => {
-        if (self) {
-            if (get(storeNegativeZero)) {
-                return concerns.canNotAlwaysIntern;
-            }
-        }
-        else {
-            if (!get(storeNegativeZero)) {
-                return concerns.impossibleEqualityOfZeros;
-            }
-            return concerns.zerosNotTripleEqual;
-        }
-    }},
+    zerosAreTripleEqual,
     tupleNaNAreTripleEqual,
     { input: `Object.is(#[+0], #[-0])`, output: [false, true], concern: (self) => {
         if (self) {
@@ -230,6 +242,9 @@ const tweakables = [
         else {
             if (!get(storeNegativeZero)) {
                 return concerns.impossibleEqualityOfZeros;
+            }
+            if (get(typeofTuple) === 'object' && get(zerosAreTripleEqual)) {
+                return concerns.differenceBetweenEqualityForTypeofObject;
             }
         }
     }},
