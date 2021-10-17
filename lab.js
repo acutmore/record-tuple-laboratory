@@ -40,8 +40,11 @@ selections.set = (input, output) => {
     }
     return selections;
 };
-/** @param concern {{input: string}} */
-const get = (concern) => selections.get(concern.input);
+
+/** @typedef {(typeof tweakables)[number]} Tweak */
+
+/** @param tweak {Tweak} */
+let get = (tweak) => selections.get(tweak.input);
 
 const concerns = {
     withoutBox: html`<details><summary>⚠ complexity moved to ecosystem</summary>
@@ -224,7 +227,7 @@ const zerosAreTripleEqual = { input: `#[+0] === #[-0]`, output: [true, false], c
 }};
 
 /**
- * input: a JS snipped
+ * input: a JS snippet
  * output: a string if this is 'given', or an Array of design options
  * disabled: a non-pure function that returns a string if this options is not currently available
  * concern: a non-pure function that returns a string if there is a concern with the design
@@ -445,3 +448,48 @@ async function copyText(element) {
 
 ready = true;
 paint();
+
+// ------------------------------------------------------------------------------------------------
+
+function reverseConcernMapping() {
+    const tree = new Map();
+    let originalGet = get;
+    try {
+        for (const t of tweakables) {
+            tree.set(t.input, Array.from(runTweaker(t)).filter(Boolean));
+        }
+    }
+    finally {
+        get = originalGet;
+    }
+    console.log(tree);
+}
+reverseConcernMapping();
+
+/**
+ * @description find all the possible concerns of a particular setting
+ * @param {Tweak} tweak
+ * @param {Map<Tweak, string | boolean>} presets
+ * @returns {Set<any>} concerns
+ */
+function runTweaker(tweak, presets = new Map(), change = tweak) {
+    const ret = new Set();
+    for (const o of change.output) {
+        presets.set(change, o);
+        let next;
+        get = (c) => {
+            if (presets.has(c)) return presets.get(c);
+            else {
+                const d = c.output[0];
+                if (!next) next = c;
+                return d;
+            }
+        }
+        ret.add(tweak.concern(presets.get(tweak)));
+        if (next) {
+            runTweaker(tweak, presets, next).forEach(c => ret.add(c));
+        }
+        presets.delete(change);
+    }
+    return ret;
+}
