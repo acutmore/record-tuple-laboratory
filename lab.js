@@ -1,10 +1,18 @@
 // @ts-check
+// @ts-expect-error
 import { html, render } from 'https://unpkg.com/htm/preact/standalone.module.js'
 
-let ready = false;
-const paint = () => {
-    if (!ready) return;
-    render(html`<${App} />`, document.body)
+let appLoaded = false;
+let paintScheduled = true;
+const paintSync = () => {
+    if (!appLoaded) return;
+    render(html`<${App} />`, document.body);
+    paintScheduled = false;
+};
+const schedulePaint = () => {
+    if (paintScheduled) return;
+    paintScheduled = true;
+    Promise.resolve().then(paintSync);
 };
 
 const givens = [
@@ -25,32 +33,34 @@ const givens = [
  * @type {Map<string, string | boolean>}
  */
 const selections = new Map();
-selections.set = (input, output) => {
+
+/** @type {typeof selections['set']} */
+const setSelection = (input, output) => {
     const match = tweakables.find(v => v.input === input);
     if (match) {
-        if (Array.isArray(match.output) && match.output.includes(output)) {
+        if (Array.isArray(match.output) && match.output.includes(/** @type {never} */(output))) {
             if (selections.get(input) !== output) {
-                Map.prototype.set.call(selections, input, output);
-                if (ready) {
+                selections.set(input, output);
+                if (appLoaded) {
                     location.hash = '';
                 }
-                paint();
+                schedulePaint();
             }
         }
     }
     return selections;
 };
 
-/** @typedef {(typeof tweakables)[number]} Tweak */
+/** @typedef {(typeof tweakables)[number]} Tweakable */
 
-/** @param tweak {Tweak} */
-let get = (tweak) => selections.get(tweak.input);
+/** @param tweakable {Tweakable} */
+const get = (tweakable) => selections.get(tweakable.input);
 
 const concerns = {
     withoutBox: html`<details><summary>⚠ complexity moved to ecosystem</summary>
         Using <a href="https://github.com/tc39/proposal-symbols-as-weakmap-keys">symbols-as-weakmap-keys</a>,
         symbols in Record and Tuples could still refer to objects/functions in a WeakMap.
-        Code will need to ensure the nessesary code has access to these WeakMap side tables.
+        Code will need to ensure the necessary code has access to these WeakMap side tables.
         APIs conventions will need to be established to distinguish when symbols are being used in this way.
         Care will need to be taken with the WeakMaps, if a Map is used by accident there is a risk of memory leaks.
         Unless direct access to the WeakMap is hidden behind a wrapper, other code could remove/replace the referenced
@@ -172,7 +182,15 @@ const concerns = {
             be '===' equal to each other, but not equal when compared by Object.is.
         </p>
     </details>`,
-}
+};
+
+/*
+ * # Tweakables
+ * input: a JS snippet
+ * output: a string if this is 'given', or an Array of design options
+ * disabled: a non-pure function that returns a string if this options is not currently available
+ * concern: a non-pure function that returns a string if there is a concern with the design
+ */
 
 const typeofBox =  { input: `typeof Box`, output: ['box', 'object', 'undefined'], concern: (self) => {
     if (noBox()) {
@@ -226,12 +244,6 @@ const zerosAreTripleEqual = { input: `#[+0] === #[-0]`, output: [true, false], c
     }
 }};
 
-/**
- * input: a JS snippet
- * output: a string if this is 'given', or an Array of design options
- * disabled: a non-pure function that returns a string if this options is not currently available
- * concern: a non-pure function that returns a string if there is a concern with the design
- */
 const tweakables = [
     storeNegativeZero,
     zerosAreTripleEqual,
@@ -314,48 +326,42 @@ const tweakables = [
     } },
 ];
 
+// Initialize selections
+for (const {input, output} of tweakables) setSelection(input, output[0]);
+
 const design = [ ...givens, ...tweakables ];
 
 function shuffle() {
-    let wasReady = ready;
     location.hash = '';
-    ready = false;
-    try {
-        for (const {input, output} of tweakables) {
-            Array.isArray(output) && selections.set(input, output[Math.floor(Math.random() * output.length)]);
-        }
-    } finally {
-        ready = wasReady;
+    for (const {input, output} of tweakables) {
+        Array.isArray(output) && setSelection(input, output[Math.floor(Math.random() * output.length)]);
     }
-    paint();
+    schedulePaint();
 }
 
-let urlLoadingIssues = [];
-
-function attemptLoadFromURL() {
-    urlLoadingIssues = [];
+const urlLoadingIssues = (function attemptLoadFromURL() {
+    const issues = [];
     try {
         const urlData = location.hash;
         if (!urlData) {
-            shuffle();
-            return;
+            return [];
         };
         const tweakableKeys = new Set(tweakables.map(t => t.input));
         for (const [key, value] of Object.entries(JSON.parse(decodeURI(urlData.slice(1))))) {
             if (! tweakableKeys.has(key)) {
-                urlLoadingIssues.push(`Unknown item in url: '${key}'`);
+                issues.push(`Unknown item in url: '${key}'`);
             }
-            selections.set(key, value);
+            setSelection(key, value);
             tweakableKeys.delete(key);
         }
         for (const unusedKey of tweakableKeys) {
-            urlLoadingIssues.push(`'${unusedKey}' was not set by the URL`);
+            issues.push(`'${unusedKey}' was not set by the URL`);
         }
     } catch (e) {
         console.error(e);
     }
-}
-attemptLoadFromURL();
+    return issues;
+})();
 
 // ------------------------------------------------------------------------------------------------
 
@@ -376,7 +382,7 @@ function App() {
         <table class="center">
             ${design.map(c => {
                 const disabled = c.disabled?.() ?? false;
-                const concerns = c.concern?.(get(c)) ?? false;
+                const concerns = c.concern?.(get(/** @type{Tweakable} */(c))) ?? false;
                 const attrs = disabled ? { class: 'disabled', title: disabled } : {};
                 return html`
                     <tr>
@@ -403,7 +409,7 @@ function App() {
 function Selection({input, output, disabled }) {
     if (Array.isArray(output)) {
         return html`
-            <select onChange=${e => selections.set(input, JSON.parse(e.target.value))} disabled=${disabled} >
+            <select onChange=${e => setSelection(input, JSON.parse(e.target.value))} disabled=${disabled} >
                 ${output.map(o => html`<option selected=${selections.get(input) === o} value=${JSON.stringify(o)}>${JSON.stringify(o)}</option>`)}
             </select>
         `;
@@ -421,15 +427,18 @@ function JSONOutput() {
 }
 
 function JSONInput() {
+    /** @type {HTMLTextAreaElement} */
+    let textArea;
     return html`
         <button onClick=${() => {
-            const input = document.getElementById('input-json').value;
+            const input = textArea.value;
+            if (input.trim().length === 0) return;
             for (const [key, value] of Object.entries(JSON.parse(input))) {
-                selections.set(key, value);
+                setSelection(key, value);
             }
-            paint();
+            schedulePaint();
         }}>Load JSON</button>
-        <textarea rows=10 id="input-json"></textarea>
+        <textarea ref=${(el) => textArea = el} rows=10 id="input-json"></textarea>
     `;
 }
 
@@ -446,50 +455,5 @@ async function copyText(element) {
     alert('Text copied to clipboard');
 }
 
-ready = true;
-paint();
-
-// ------------------------------------------------------------------------------------------------
-
-function reverseConcernMapping() {
-    const tree = new Map();
-    let originalGet = get;
-    try {
-        for (const t of tweakables) {
-            tree.set(t.input, Array.from(runTweaker(t)).filter(Boolean));
-        }
-    }
-    finally {
-        get = originalGet;
-    }
-    console.log(tree);
-}
-reverseConcernMapping();
-
-/**
- * @description find all the possible concerns of a particular setting
- * @param {Tweak} tweak
- * @param {Map<Tweak, string | boolean>} presets
- * @returns {Set<any>} concerns
- */
-function runTweaker(tweak, presets = new Map(), change = tweak) {
-    const ret = new Set();
-    for (const o of change.output) {
-        presets.set(change, o);
-        let next;
-        get = (c) => {
-            if (presets.has(c)) return presets.get(c);
-            else {
-                const d = c.output[0];
-                if (!next) next = c;
-                return d;
-            }
-        }
-        ret.add(tweak.concern(presets.get(tweak)));
-        if (next) {
-            runTweaker(tweak, presets, next).forEach(c => ret.add(c));
-        }
-        presets.delete(change);
-    }
-    return ret;
-}
+appLoaded = true;
+paintSync();
