@@ -103,10 +103,21 @@ const concerns = {
     unequalTupleNan: html`<details><summary>⚠ consistency change</summary>
         Currently the only value not equal to itself is NaN, and this can be used as a reliable check for NaN.
         If any record or tuple containing a NaN within its tree is also not equal to itself, then there would
-        be an infinite number of values not equal to themselves.</details>`,
+        be an infinite number of values not equal to themselves.
+        <ul>
+            <li><a href="https://github.com/tc39/proposal-record-tuple/issues/65">R&T #65 Equality semantics for -0 and NaN</a></li>
+        </ul>
+        </details>`,
     noNegativeZero: html`<details><summary>⚠ no negative zero</summary>
+        <p>
         Negative zero can be stored in a standard Array. If negative zero was transformed into positive zero
-        when stored in a tuple, then mapping arrays of numbers to and from tuples would not be isomorphic.</details>`,
+        when stored in a tuple, then mapping arrays of numbers to and from tuples would not be isomorphic.
+        </p>
+        <p>Being able to store a negative zero is considered important to some users.</p>
+        <ul>
+            <li><a href="https://github.com/tc39/proposal-record-tuple/issues/65">R&T #65 Equality semantics for -0 and NaN</a></li>
+        </ul>
+        </details>`,
     impossibleEqualityOfZeros: html`<details><summary>⚠ impossible equality</summary>
         If negative zero can not be stored in a Tuple (converted to +0). Then #[-0] cannot compare unequal to #[+0].</details>`,
     observableDifferentButIsEqual: html`<details><summary>⚠ Object.is semantics</summary>
@@ -127,7 +138,11 @@ const concerns = {
         </details>`,
     zerosNotTripleEqual: html`<details><summary>⚠ Triple equality semantics</summary>
         As -0 === +0 on their own, it may surprise people that they are no longer treated as triple equal when compared
-        via a record or tuple. This could lead to bugs.</details>`,
+        via a record or tuple. This could lead to bugs.
+        <ul>
+            <li><a href="https://github.com/tc39/proposal-record-tuple/issues/65">R&T #65 Equality semantics for -0 and NaN</a></li>
+        </ul>
+        </details>`,
     storingPrimitiveInBox: html`<details><summary>⚠ storing <i>primitives*</i> in a Box</summary>
         <p>
             primitives*: For want of a more appropriate term, in this section the term primitive will have the meaning: a value that can be directly stored in a Record or Tuple.
