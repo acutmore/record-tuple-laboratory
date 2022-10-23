@@ -509,19 +509,16 @@ const tweakables = [
 	}),
 ];
 
-// Initialize selections
-for (const { input, default: _default } of tweakables) setSelection(input, _default);
+function setToDefaults() {
+	for (const { input, default: _default } of tweakables) {
+		setSelection(input, _default);
+	}
+}
+setToDefaults();
 
 const design = [...givens, ...tweakables];
 
-function shuffle() {
-	location.hash = "";
-	for (const { input, output } of tweakables) {
-		Array.isArray(output) &&
-			setSelection(input, output[Math.floor(Math.random() * output.length)]);
-	}
-	schedulePaint();
-}
+// ------------------------------------------------------------------------------------------------
 
 const urlLoadingIssues = (function attemptLoadFromURL() {
 	const issues = [];
@@ -555,7 +552,14 @@ const urlLoadingIssues = (function attemptLoadFromURL() {
 	return issues;
 })();
 
-// ------------------------------------------------------------------------------------------------
+function shuffle() {
+	location.hash = "";
+	for (const { input, output } of tweakables) {
+		Array.isArray(output) &&
+			setSelection(input, output[Math.floor(Math.random() * output.length)]);
+	}
+	schedulePaint();
+}
 
 function App() {
 	return html`
@@ -576,6 +580,7 @@ function App() {
 			  `
 			: false}
 		<p class="text-center">
+			<button onClick=${setToDefaults}>reset</button>
 			<button onClick=${shuffle}>shuffle</button>
 		</p>
 		<table class="center">
