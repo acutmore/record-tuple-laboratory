@@ -271,6 +271,21 @@ const concerns = {
 			If Records and Tuples are objects then <pre>ToObject</pre> should be an identity function.
 		</p>
 	</details>`,
+	tuplePrototypeEquality: html`<details>
+		<summary>⚠ Tuple prototype equality</summary>
+		<p>
+			Records do not have a '[[prototype]]', it is null. Tuples on the other hand do have a '[[prototype]]', being lists they
+			can have many of the typical generic list operations (e.g. map, filter etc).
+			In fact Tuples have all the same non-mutating methods as Arrays.
+		</p>
+		<p>
+			If Tuples are objects this means that the methods on their '[[prototype]]' will be linked to the realm (e.g. iframe) in which they were created.
+			As opposed to primitives, where property access triggers a <pre>ToObject</pre> in the current executing realm.
+			This would mean that two Tuples created in different realms will carry around different prototypes.
+			The choice here is that either two objects with different prototypes can still be === equal to each other.
+			Or Tuples from different realms are never equal even if their contents are equal.
+		</p>
+	</details>`,
 };
 
 /**
@@ -327,6 +342,9 @@ const typeofTuple = tweakable({
 	concern: (self) => {
 		if (!noBox() && self !== get(typeOfTupleWithBox)) {
 			return concerns.slotSensitiveTypeof;
+		}
+		if (self === "object") {
+			return concerns.tuplePrototypeEquality;
 		}
 	},
 });
