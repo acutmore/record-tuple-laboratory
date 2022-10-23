@@ -379,6 +379,9 @@ function App() {
                 ${urlLoadingIssues.map(issue => html`<li>${issue}</li>`)}
             </ul>
         ` : false}
+        <p class="text-center">
+            <button onClick=${shuffle}>shuffle</button>
+        </p>
         <table class="center">
             ${design.map(c => {
                 const disabled = c.disabled?.() ?? false;
@@ -396,9 +399,6 @@ function App() {
                 `
             })}
         </table>
-        <p class="text-center">
-            <button onClick=${shuffle}>shuffle</button>
-        </p>
         <div class="center" style=${{ width: '500px' }}>
             <div class="scrollable" style=${{ marginTop: '10px', float: 'left' }}><${JSONOutput} /></div>
             <div class="scrollable" style=${{ marginTop: '10px', float: 'left' }}><${JSONInput} /> </div>
