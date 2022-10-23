@@ -58,8 +58,9 @@ const get = (tweakable) => selections.get(tweakable.input);
 
 const concerns = {
 	withoutBox: html`<details><summary>⚠ complexity moved to ecosystem</summary>
-		Using <a href="https://github.com/tc39/proposal-symbols-as-weakmap-keys">symbols-as-weakmap-keys</a>,
-		symbols in Record and Tuples could still refer to objects/functions in a WeakMap.
+	    <p>Without a 'Box' like type there will not be any direct support in the language for storing objects in Records and Tuples.</p>
+		Instead using <a href="https://github.com/tc39/proposal-symbols-as-weakmap-keys">symbols-as-weakmap-keys</a>,
+		symbols in Record and Tuples could still refer to objects/functions via a WeakMap.
 		Code will need to ensure the necessary code has access to these WeakMap side tables.
 		APIs conventions will need to be established to distinguish when symbols are being used in this way.
 		Care will need to be taken with the WeakMaps, if a Map is used by accident there is a risk of memory leaks.
@@ -108,8 +109,8 @@ const concerns = {
 	</details>`,
 	objectWrappers: html`<details>
 		<summary>⚠ object wrappers</summary>
-		Having Object wrappers for Record and Tuple will adds a risk to avoid and confusion when
-		using JS.
+		<p>If Records and Tuples are not objects then a <pre>ToObject</pre> operation will return an object wrapper
+		which will have its own unique identity: <pre>Object(#[]) !== Object(#[])</pre></p>.
 	</details>`,
 	objectWrapperInConsistency: html`<details>
 		<summary>⚠ object wrapper consistency</summary>
@@ -394,32 +395,20 @@ const tweakables = [
 			}
 		},
 	}),
-	typeofBox,
 	typeofTuple,
-	typeOfTupleWithBox,
-	tweakable({
-		input: `Box(42) // throws?`,
-		output: [true, false],
-		default: true,
-		disabled: noBox,
-		concern: (self) => {
-			if (self) {
-				return concerns.noPrimitivesInBox;
-			} else {
-				return concerns.storingPrimitiveInBox;
-			}
-		},
-	}),
 	tweakable({
 		input: `Object(#[]) === #[]`,
-		output: [true, false],
-		default: true,
-		concern: (self) => {
-			if (self) {
-				if (get(typeofTuple) !== "object") {
+		output: [false, true],
+		default: false,
+		concern: (noWrappers) => {
+			if (noWrappers) {
+				if (get(typeofTuple) === "tuple") {
 					return concerns.objectWrapperInConsistency;
 				}
 			} else {
+				if (get(typeOfTupleWithBox) === "object") {
+					return concerns.objectWrapperInConsistency;
+				}
 				return concerns.objectWrappers;
 			}
 		},
@@ -439,17 +428,6 @@ const tweakables = [
 		},
 	}),
 	tweakable({
-		input: `new WeakSet().add(#[Box({})]) // throws?`,
-		output: [true, false],
-		default: true,
-		disabled: noBox,
-		concern: (self) => {
-			if (self) {
-				return concerns.noBoxesInWeakSets;
-			}
-		},
-	}),
-	tweakable({
 		input: `new Proxy(#[]) // throws?`,
 		output: [true, false],
 		default: true,
@@ -460,6 +438,32 @@ const tweakables = [
 				}
 			} else {
 				return concerns.recordProxies;
+			}
+		},
+	}),
+	typeofBox,
+	typeOfTupleWithBox,
+	tweakable({
+		input: `Box(42) // throws?`,
+		output: [true, false],
+		default: true,
+		disabled: noBox,
+		concern: (self) => {
+			if (self) {
+				return concerns.noPrimitivesInBox;
+			} else {
+				return concerns.storingPrimitiveInBox;
+			}
+		},
+	}),
+	tweakable({
+		input: `new WeakSet().add(#[Box({})]) // throws?`,
+		output: [true, false],
+		default: true,
+		disabled: noBox,
+		concern: (self) => {
+			if (self) {
+				return concerns.noBoxesInWeakSets;
 			}
 		},
 	}),
