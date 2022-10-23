@@ -26,6 +26,7 @@ const givens = [
 	{ input: `[NaN].includes(NaN)`, output: true },
 	{ input: `[0] === [0]`, output: false },
 	{ input: `#[0] === #[0]`, output: true },
+	{ input: `Object.isFrozen(#[0])`, output: true },
 ];
 
 /**
@@ -258,6 +259,18 @@ const concerns = {
 			each other, but not equal when compared by Object.is.
 		</p>
 	</details>`,
+	boxType:  html`<details>
+		<summary>⚠ Box type</summary>
+		<p>
+			Introducing a Box type to the language adds more complexity to the language.
+		</p>
+	</details>`,
+	objectsDontHaveWrappers: html`<details>
+		<summary>⚠ Value is already an object</summary>
+		<p>
+			If Records and Tuples are objects then <pre>ToObject</pre> should be an identity function.
+		</p>
+	</details>`,
 };
 
 /**
@@ -280,21 +293,32 @@ function tweakable({input, output, concern, default: _default, disabled}) {
 	};
 }
 
-const typeofBox = tweakable({
+const typeofBoxConstructor = tweakable({
 	input: `typeof Box`,
-	output: ["box", "object", "undefined"],
+	output: ["undefined", "function"],
 	default: "undefined",
 	concern: (self) => {
-		if (noBox()) {
+		if (self === "undefined") {
 			return concerns.withoutBox;
-		}
-		if (self !== "object") {
-			return concerns.typeofPowerfulObjectIsNotObject;
+		} else {
+			return concerns.boxType;
 		}
 	},
 });
 
-const noBox = () => (get(typeofBox) === "undefined" ? `typeof Box === 'undefined'` : false);
+const noBox = () => (get(typeofBoxConstructor) === "undefined" ? `typeof Box === 'undefined'` : false);
+
+const typeofBoxInstance = tweakable({
+	input: `typeof Box({})`,
+	output: ["box", "object"],
+	default: "box",
+	disabled: noBox,
+	concern: (self) => {
+		if (self === "box") {
+			return concerns.typeofPowerfulObjectIsNotObject;
+		}
+	},
+});
 
 const typeofTuple = tweakable({
 	input: `typeof #[]`,
@@ -316,7 +340,7 @@ const typeOfTupleWithBox = tweakable({
 		if (get(typeofTuple) === "object" && self === "tuple") {
 			return concerns.confusingTypeof;
 		}
-		if (self !== "object") {
+		if (self === "tuple" && get(typeofBoxInstance) === "object") {
 			return concerns.typeofPowerfulObjectIsNotObject;
 		}
 	},
@@ -406,8 +430,8 @@ const tweakables = [
 					return concerns.objectWrapperInConsistency;
 				}
 			} else {
-				if (get(typeOfTupleWithBox) === "object") {
-					return concerns.objectWrapperInConsistency;
+				if (get(typeofTuple) === "object") {
+					return concerns.objectsDontHaveWrappers;
 				}
 				return concerns.objectWrappers;
 			}
@@ -419,7 +443,7 @@ const tweakables = [
 		default: true,
 		concern: (self) => {
 			if (self) {
-				if (get(typeofBox) === "object") {
+				if (get(typeofTuple) === "object") {
 					return concerns.validWeakValue;
 				}
 			} else {
@@ -441,7 +465,8 @@ const tweakables = [
 			}
 		},
 	}),
-	typeofBox,
+	typeofBoxConstructor,
+	typeofBoxInstance,
 	typeOfTupleWithBox,
 	tweakable({
 		input: `Box(42) // throws?`,
