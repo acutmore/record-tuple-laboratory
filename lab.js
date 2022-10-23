@@ -541,10 +541,7 @@ function App() {
 			/></a>
 		</h1>
 		<p class="text-center">
-			🏗 Work in progress -
-			<a href="https://github.com/acutmore/record-tuple-laboratory/issues/new" target="_blank"
-				>raise issue</a
-			>
+			🏗 Work in progress - <a href="https://github.com/acutmore/record-tuple-laboratory/issues/new" target="_blank">raise issue</a>
 		</p>
 		${urlLoadingIssues.length > 0
 			? html`
