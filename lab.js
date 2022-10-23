@@ -496,7 +496,14 @@ const urlLoadingIssues = (function attemptLoadFromURL() {
 			return [];
 		}
 		const tweakableKeys = new Map(tweakables.map((t) => [t.input, t]));
-		for (const [key, value] of Object.entries(JSON.parse(decodeURI(urlData.slice(1))))) {
+		let data;
+		try {
+			data = JSON.parse(atob(urlData.slice(1)));
+		} catch (err) {
+			// fallback to old url style
+			data = JSON.parse(decodeURI(urlData.slice(1)).replace(/%23/g, '#'));
+		}
+		for (const [key, value] of Object.entries(data)) {
 			if (!tweakableKeys.has(key)) {
 				issues.push(`Unknown item in url: '${key}'`);
 			}
@@ -604,7 +611,7 @@ function getStateAsObject() {
 
 function JSONOutput() {
 	return html`
-		<button onClick=${saveURL}>save as URL</button> or click the JSON to copy that to clipboard
+		<button onClick=${saveURL}>save as URL</button> or click the JSON to copy that to the clipboard
 		<pre onClick=${(e) => copyText(e.target)}>${
 			JSON.stringify(getStateAsObject(), undefined, 2)
 		}</pre>
@@ -632,7 +639,7 @@ function JSONInput() {
 }
 
 async function saveURL() {
-	const encoded = `${encodeURI(JSON.stringify(getStateAsObject()))}`;
+	const encoded = `${btoa(JSON.stringify(getStateAsObject()))}`;
 	location.hash = encoded;
 
 	await navigator.clipboard.writeText(location.toString());
