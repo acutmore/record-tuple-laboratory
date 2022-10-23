@@ -269,8 +269,14 @@ const concerns = {
  * @template {string|boolean} T
  * @param t {{input: string, output: readonly T[], concern : ((self:T) => any), default: T, disabled?: Function }}
  */
-function tweakable(t) {
-	return t;
+function tweakable({input, output, concern, default: _default, disabled}) {
+	return {
+		input,
+		output,
+		concern: () => concern(/** @type {T} */(get({input}))),
+		default: _default,
+		disabled
+	};
 }
 
 const typeofBox = tweakable({
@@ -550,7 +556,7 @@ function App() {
 			${design.map((c) => {
 				const disabled = "disabled" in c ? c.disabled?.() ?? false : false;
 				const currentValue = get(c);
-				const concerns = "concern" in c ? c.concern?.(currentValue) ?? false : false;
+				const concerns = "concern" in c ? c.concern?.() ?? false : false;
 				const attrs = disabled ? { class: "disabled", title: disabled } : {};
 				return html`
 					<tr>
