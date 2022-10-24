@@ -57,6 +57,14 @@ const setSelection = (input, output) => {
 /** @param tweakable {{input: string}} */
 const get = (tweakable) => selections.get(tweakable.input);
 
+const tuplePrototype = html`<p>
+	If Tuples are objects this means that the methods on their '[[prototype]]' will be linked to the realm (e.g. iframe) in which they were created.
+	As opposed to primitives, where property access triggers a <pre>ToObject</pre> in the current executing realm.
+	This would mean that two Tuples created in different realms will carry around different prototypes.
+	The choice here is that either two objects with different prototypes can still be === equal to each other.
+	Or Tuples from different realms are never equal even if their contents are equal.
+</p>`;
+
 const concerns = {
 	withoutBox: html`<details><summary>⚠ complexity moved to ecosystem</summary>
 	    <p>Without a 'Box' like type there will not be any direct support in the language for storing objects in Records and Tuples.</p>
@@ -114,9 +122,9 @@ const concerns = {
 		which will have its own unique identity: <pre>Object(#[]) !== Object(#[])</pre></p>.
 	</details>`,
 	objectWrapperInConsistency: html`<details>
-		<summary>⚠ object wrapper consistency</summary>
-		Usually values where their typeof is not 'object' or 'function' have Object wrapper versions
-		of them.
+		<summary>⚠ being objects</summary>
+		<p>Code may assume that if a value's typeof is not 'object' or 'function' then it is not an object, but if <pre>ToObject</pre> returns the value as is this implies that it is an object.</p>
+		${tuplePrototype}
 	</details>`,
 	noBoxesInWeakSets: html`<details>
 		<summary>⚠ performance</summary>
@@ -278,13 +286,7 @@ const concerns = {
 			can have many of the typical generic list operations (e.g. map, filter etc).
 			In fact Tuples have all the same non-mutating methods as Arrays.
 		</p>
-		<p>
-			If Tuples are objects this means that the methods on their '[[prototype]]' will be linked to the realm (e.g. iframe) in which they were created.
-			As opposed to primitives, where property access triggers a <pre>ToObject</pre> in the current executing realm.
-			This would mean that two Tuples created in different realms will carry around different prototypes.
-			The choice here is that either two objects with different prototypes can still be === equal to each other.
-			Or Tuples from different realms are never equal even if their contents are equal.
-		</p>
+		${tuplePrototype}
 	</details>`,
 };
 
