@@ -550,7 +550,10 @@ const urlLoadingIssues = (function attemptLoadFromURL() {
 		const tweakableKeys = new Map(tweakables.map((t) => [t.input, t]));
 		let data;
 		try {
-			data = JSON.parse(atob(urlData.slice(1)));
+			let b64 = urlData.slice(1);
+			b64 += Array(5 - b64.length % 4).join('=');
+			b64 = b64.replace(/\-/g, '+').replace(/\_/g, '/');
+			data = JSON.parse(atob(b64));
 		} catch (err) {
 			// fallback to old url style
 			data = JSON.parse(decodeURI(urlData.slice(1)).replace(/%23/g, '#'));
@@ -696,7 +699,8 @@ function JSONInput() {
 }
 
 async function saveURL() {
-	const encoded = `${btoa(JSON.stringify(getStateAsObject()))}`;
+	let encoded = `${btoa(JSON.stringify(getStateAsObject()))}`;
+	encoded = encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 	location.hash = encoded;
 
 	await navigator.clipboard.writeText(location.toString());
