@@ -551,7 +551,7 @@ const urlLoadingIssues = (function attemptLoadFromURL() {
 		let data;
 		try {
 			let b64 = urlData.slice(1);
-			b64 += Array(5 - b64.length % 4).join('=');
+			b64 += Array(((4 - (b64.length % 4)) % 4) + 1).join('=');
 			b64 = b64.replace(/\-/g, '+').replace(/\_/g, '/');
 			data = JSON.parse(atob(b64));
 		} catch (err) {
